@@ -1,0 +1,25 @@
+WHITESPACE = _{ " " | "\n" | "\t" }
+COMMENT = _{ "--" ~ (!("--" | "\n" | EOI) ~ ANY)* ~ ("--" | "\n" | EOI) }
+
+program = { SOI ~ (stmt | expr)* ~ EOI}
+
+stmt = { ltd }
+expr = { binadd | funcall | fun | idt }
+
+ltd  = { "let" ~ idt ~ "=" ~ expr}
+
+fun     = { "fun" ~ idt ~ "(" ~ ")" ~ expr ~ "end" }
+funcall = {idt  ~ "(" ~ ")"}
+num     = @{ ('0' .. '9')+ }
+
+binadd = { (fun | funcall | idt | binmul) ~ ((add | sub) ~ (fun | funcall | idt | binmul))* }
+binmul = { (fun | funcall | idt | binpow) ~ ((mul | div) ~ (fun | funcall | idt | binpow))* }
+binpow = { (fun | funcall | idt | num)    ~ (pow         ~ (fun | funcall | idt | num))*    }
+
+idt = @{ (('A' .. 'Z') | ('a' .. 'z'))+ ~ ("-" ~ (('A' .. 'Z') | ('a' .. 'z'))+)* }
+
+add = @{ "+"}
+sub = @{ "-" }
+mul = @{ "*" }
+div = @{ "/" }
+pow = @{ "**" }
