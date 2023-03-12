@@ -1,24 +1,29 @@
 WHITESPACE = _{ " " | "\n" | "\t" }
 COMMENT = _{ "--" ~ (!("--" | "\n" | EOI) ~ ANY)* ~ ("--" | "\n" | EOI) }
 
-program = { SOI ~ (stmt | expr)* ~ EOI}
+program = { SOI ~ (expr)* ~ EOI}
 
-stmt = { ltd }
-expr = { binadd | funcall | fun | idt }
+expr = { ltd | binadd | funcall | fun | idt | num }
 
-ltd  = { "let" ~ idt ~ "=" ~ expr}
+ltd  = { "let" ~ idt ~ "=" ~ expr ~ expr}
 
-fun     = { "fun" ~ idt ~ "(" ~ ")" ~ expr ~ "end" }
-funcall = {idt  ~ "(" ~ ")"}
+fun  = { "fun" ~ idt ~ "(" ~ (args)* ~ ")" ~ expr ~ "end" ~ expr }
+
+funcall = {idt  ~ "(" ~ (params)* ~ ")"}
+
+args   = { (idt ~ ("," ~ idt)*)   }
+params = { (expr ~ ("," ~ expr)*) }
+
 num     = @{ ('0' .. '9')+ }
 
-binadd = { (fun | funcall | idt | binmul) ~ ((add | sub) ~ (fun | funcall | idt | binmul))* }
-binmul = { (fun | funcall | idt | binpow) ~ ((mul | div) ~ (fun | funcall | idt | binpow))* }
-binpow = { (fun | funcall | idt | num)    ~ (pow         ~ (fun | funcall | idt | num))*    }
+
+binadd = { (fun | funcall | binmul)    ~ ((add | sub) ~ (fun | funcall | binmul))*    }
+binmul = { (fun | funcall | binpow)    ~ ((mul | div) ~ (fun | funcall | binpow))*    }
+binpow = { (fun | funcall | idt | num) ~ (pow         ~ (fun | funcall | idt | num))* }
 
 idt = @{ (('A' .. 'Z') | ('a' .. 'z'))+ ~ ("-" ~ (('A' .. 'Z') | ('a' .. 'z'))+)* }
 
-add = @{ "+"}
+add = @{ "+" }
 sub = @{ "-" }
 mul = @{ "*" }
 div = @{ "/" }

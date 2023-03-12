@@ -3,6 +3,14 @@
 version = 3
 
 [[package]]
+name = "bang"
+version = "0.1.0"
+dependencies = [
+ "pest",
+ "pest_derive",
+]
+
+[[package]]
 name = "block-buffer"
 version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -61,14 +69,6 @@ name = "itoa"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fad582f4b9e86b6caa621cabeb0963332d92eea04729ab12892c2533951e6440"
-
-[[package]]
-name = "lang2"
-version = "0.1.0"
-dependencies = [
- "pest",
- "pest_derive",
-]
 
 [[package]]
 name = "libc"
