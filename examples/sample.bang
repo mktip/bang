@@ -1,0 +1,11 @@
+let x = 10
+
+let y = 20
+
+fun add(a, b)
+  a + b
+end
+
+let j = 20
+
+add(j, y)

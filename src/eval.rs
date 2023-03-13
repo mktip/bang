@@ -71,7 +71,7 @@ pub fn eval_prgm(pair: AstNode) -> Result<Value, RunErr> {
     Ok(val)
 }
 
-pub fn eval_expr(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
+fn eval_expr(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     match pair {
         AstNode::BinAdd(_, _, _) => eval_binadd(pair, env),
         AstNode::BinMul(_, _, _) => eval_binmul(pair, env),
@@ -88,7 +88,7 @@ pub fn eval_expr(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     }
 }
 
-pub fn eval_ltd(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
+fn eval_ltd(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     let val = match pair {
         AstNode::Let(idt, eqv, body) => {
             if let Ok(val) = eval_expr(*eqv, &mut env.new_child()) {
