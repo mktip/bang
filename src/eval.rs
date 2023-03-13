@@ -129,8 +129,8 @@ fn eval_funcall(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
             };
 
             match fun {
-                Value::Fun(args, eqv, env) => {
-                    let mut new_env = env.new_child();
+                Value::Fun(args, eqv, fenv) => {
+                    let mut new_env = fenv.new_child();
 
                     for (arg, param) in args.iter().zip(params.iter()) {
                         let arg = match arg {
