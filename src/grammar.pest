@@ -3,25 +3,34 @@ COMMENT = _{ "--" ~ (!("--" | "\n" | EOI) ~ ANY)* ~ ("--" | "\n" | EOI) }
 
 program = { SOI ~ (expr)* ~ EOI}
 
-expr = { ltd | binadd | funcall | fun | idt | num }
+expr = {  fun | cond | ltd | binadd | funcall | idt | num }
 
-ltd  = { "let" ~ idt ~ "=" ~ expr ~ expr}
+ltd  = { "let" ~ idt ~ "=" ~ expr}
 
-fun  = { "fun" ~ idt ~ "(" ~ (args)* ~ ")" ~ expr ~ "end" ~ expr }
+fun  = { "fun" ~ idt ~ "(" ~ (args)? ~ ")" ~ expr+ ~ "end"}
 
-funcall = {idt  ~ "(" ~ (params)* ~ ")"}
+funcall = {idt  ~ "(" ~ (params)? ~ ")"}
 
 args   = { (idt ~ ("," ~ idt)*)   }
 params = { (expr ~ ("," ~ expr)*) }
 
+
+cond = { "match" ~ expr ~ (branch)+ ~ (defbranch)? ~ "end"}
+branch = { expr ~ "=>" ~ expr }
+defbranch = { default ~ "=>" ~ expr }
+default = @{ "_" }
+
 num     = @{ ('0' .. '9')+ }
+bool = { true | false }
+true = @{"true"}
+false = @{"false"}
+idt = @{ !("end") ~ (('A' .. 'Z') | ('a' .. 'z'))+ ~ ("-" ~ (('A' .. 'Z') | ('a' .. 'z'))+)* }
 
 
 binadd = { (fun | funcall | binmul)    ~ ((add | sub) ~ (fun | funcall | binmul))*    }
 binmul = { (fun | funcall | binpow)    ~ ((mul | div) ~ (fun | funcall | binpow))*    }
-binpow = { (fun | funcall | idt | num) ~ (pow         ~ (fun | funcall | idt | num))* }
+binpow = { (fun | funcall | cond | idt | num) ~ (pow         ~ (fun | funcall | cond | idt | num))* }
 
-idt = @{ (('A' .. 'Z') | ('a' .. 'z'))+ ~ ("-" ~ (('A' .. 'Z') | ('a' .. 'z'))+)* }
 
 add = @{ "+" }
 sub = @{ "-" }

@@ -2,10 +2,15 @@ use crate::parse::AstNode;
 use std::collections::HashMap;
 use std::collections::LinkedList;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 #[derive(Debug, Clone)]
+
 pub enum Value {
     Num(i32),
-    Fun(LinkedList<AstNode>, AstNode, Env),
+    Fun(LinkedList<AstNode>, LinkedList<AstNode>, Rc<RefCell<Env>>),
+    Bool(bool),
 }
 
 #[derive(Debug, Clone)]
@@ -13,7 +18,7 @@ pub struct RunErr(pub String);
 
 #[derive(Debug, Clone)]
 pub struct Env {
-    env: HashMap<String, Value>,
+    env: HashMap<String, Rc<RefCell<Value>>>,
     parent: Option<Box<Env>>,
 }
 
@@ -34,7 +39,7 @@ impl Env {
 
     fn get(&self, idt: &str) -> Option<Value> {
         match self.env.get(idt) {
-            Some(val) => Some(val.clone()),
+            Some(val) => Some(val.borrow().clone()),
             None => match &self.parent {
                 Some(env) => env.get(idt),
                 None => None,
@@ -42,13 +47,13 @@ impl Env {
         }
     }
 
-    fn insert(&mut self, idt: String, val: Value) {
+    fn insert(&mut self, idt: String, val: Rc<RefCell<Value>>) {
         self.env.insert(idt, val);
     }
 }
 
 pub fn eval_prgm(pair: AstNode) -> Result<Value, RunErr> {
-    let env = Env::new();
+    let mut env = Env::new();
     let mut val = Value::Num(-1);
 
     let lst = match pair {
@@ -60,7 +65,7 @@ pub fn eval_prgm(pair: AstNode) -> Result<Value, RunErr> {
 
     for pair in lst {
         val = match pair {
-            AstNode::Expr(expr) => eval_expr(*expr, &mut env.new_child())?,
+            AstNode::Expr(expr) => eval_expr(*expr, &mut env)?,
             AstNode::EOI => continue,
             _ => {
                 unreachable!()
@@ -77,42 +82,101 @@ fn eval_expr(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
         AstNode::BinMul(_, _, _) => eval_binmul(pair, env),
         AstNode::BinPow(_, _, _) => eval_binpow(pair, env),
         AstNode::Num(_) => eval_num(pair),
-        AstNode::Let(_, _, _) => eval_ltd(pair, env),
+        AstNode::Let(_, _) => eval_ltd(pair, env),
         AstNode::Idt(_) => eval_idt(pair, env),
         AstNode::Expr(expr) => eval_expr(*expr, env),
-        AstNode::Fun(_, _, _, _) => eval_fun(pair, env),
+        AstNode::Fun(_, _, _) => eval_fun(pair, env),
         AstNode::Funcall(_, _) => eval_funcall(pair, env),
+        AstNode::Match(_, _) => eval_match(pair, env),
         _ => {
             unreachable!()
         }
     }
 }
 
-fn eval_ltd(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
-    let val = match pair {
-        AstNode::Let(idt, eqv, body) => {
-            if let Ok(val) = eval_expr(*eqv, &mut env.new_child()) {
-                env.insert(idt.to_string(), val);
-            }
-
-            eval_expr(*body, &mut env.new_child())?
-        }
+fn eval_match(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
+    let (expr, cases) = match pair {
+        AstNode::Match(expr, cases) => (expr, cases),
         _ => {
-            dbg!(pair);
             unreachable!()
         }
     };
 
-    Ok(val)
+    let expr = match *expr {
+        AstNode::Expr(expr) => *expr,
+        _ => {
+            unreachable!()
+        }
+    };
+
+    let expr = eval_expr(expr, &mut env.new_child())?;
+
+    let res = cases.into_iter().find_map(|case| {
+        let (pat, eqv) = match case {
+            AstNode::Branch(pat, eqv) => (pat, eqv),
+            _ => {
+                unreachable!()
+            }
+        };
+
+        let pat = match *pat {
+            AstNode::Expr(new) => *new,
+            AstNode::Default => {
+                return Some(eval_expr(*eqv, &mut env.new_child()));
+            }
+            _ => {
+                unreachable!()
+            }
+        };
+
+        let pat = eval_expr(pat, &mut env.new_child());
+
+        match (&expr, &pat) {
+            (&Value::Num(a), Ok(Value::Num(b))) if a.eq(b) => {
+                Some(eval_expr(*eqv, &mut env.new_child()))
+            }
+            _ => None,
+        }
+    });
+
+    Ok(res.unwrap()?)
+}
+
+fn eval_ltd(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
+    let val = match pair {
+        AstNode::Let(idt, eqv) => {
+            if let Ok(val) = eval_expr(*eqv, &mut env.new_child()) {
+                env.insert(idt.to_string(), Rc::new(RefCell::new(val.clone())));
+                Ok(val)
+            } else {
+                Err(RunErr("Error when evaluating val of let".to_string()))
+            }
+
+            // eval_expr(*body, &mut env.new_child())?
+        }
+        _ => {
+            unreachable!()
+        }
+    };
+
+    val
 }
 
 fn eval_fun(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     match pair {
-        AstNode::Fun(idt, args, eqv, body) => {
-            let fun = Value::Fun(args, *eqv, env.clone());
+        AstNode::Fun(idt, args, eqv) => {
+            let fenv = Rc::new(RefCell::new(env.new_child()));
+
+            // for body in eqv.clone() {
+            //     dbg!(&body);
+            // }
+            let fun = Rc::new(RefCell::new(Value::Fun(args, eqv, fenv.clone())));
+
+            fenv.borrow_mut().insert(idt.to_string(), fun.clone());
+
             env.insert(idt.to_string(), fun);
 
-            eval_expr(*body, &mut env.new_child())
+            Ok(Value::Num(0))
         }
         _ => {
             unreachable!()
@@ -125,12 +189,12 @@ fn eval_funcall(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
         AstNode::Funcall(idt, params) => {
             let fun = match env.get(&idt) {
                 Some(val) => val,
-                None => return Err(RunErr(format!("Error: {} is not defined", &idt))),
+                None => return Err(RunErr(format!("Error function {} is not defined", &idt))),
             };
 
             match fun {
                 Value::Fun(args, eqv, fenv) => {
-                    let mut new_env = fenv.new_child();
+                    let mut new_env = fenv.borrow_mut().new_child();
 
                     for (arg, param) in args.iter().zip(params.iter()) {
                         let arg = match arg {
@@ -148,10 +212,21 @@ fn eval_funcall(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
                         };
 
                         let val = eval_expr(param, &mut env.new_child())?;
-                        new_env.insert(arg.to_string(), val);
+                        new_env.insert(arg.to_string(), Rc::new(RefCell::new(val)));
                     }
 
-                    eval_expr(eqv, &mut new_env)
+                    new_env.insert(
+                        idt.to_string(),
+                        Rc::new(RefCell::new(Value::Fun(args, eqv.clone(), fenv))),
+                    );
+
+                    let mut res = Err(RunErr("Error when evaluating function".to_string()));
+
+                    for body in eqv {
+                        res = eval_expr(body, &mut new_env);
+                    }
+
+                    res
                 }
                 _ => {
                     unreachable!()
@@ -174,7 +249,7 @@ fn eval_idt(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
 
     match env.get(&idt) {
         Some(val) => Ok(val.clone()),
-        None => Err(RunErr(format!("Error: {} is not defined", &idt))),
+        None => Err(RunErr(format!("Error: identifier {} is not defined", &idt))),
     }
 }
 
@@ -182,7 +257,6 @@ fn eval_binadd(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     let (lhs, op, rhs) = match pair {
         AstNode::BinAdd(lhs, op, rhs) => (lhs, op, rhs),
         _ => {
-            dbg!(pair);
             unreachable!()
         }
     };

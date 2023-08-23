@@ -25,7 +25,7 @@ mod tests {
                 println!("unimplemented val");
             }
             Err(RunErr(msg)) => {
-                println!("{}", msg);
+                panic!("{}", msg);
             }
         }
     }
@@ -48,7 +48,7 @@ mod tests {
                 println!("unimplemented val");
             }
             Err(RunErr(msg)) => {
-                println!("{}", msg);
+                panic!("{}", msg);
             }
         }
     }
@@ -62,10 +62,7 @@ mod tests {
         let exp = (1 + 2 * 5 + 3 - 2) * 2 + 2_i32.pow(10);
 
         let val = match BangParser::parse(txt) {
-            Ok(node) => {
-                dbg!(&node);
-                eval_prgm(node)
-            }
+            Ok(node) => eval_prgm(node),
             Err(e) => panic!("Error: {:?}", e),
         };
 
@@ -77,7 +74,7 @@ mod tests {
                 println!("unimplemented val");
             }
             Err(RunErr(msg)) => {
-                println!("{}", msg);
+                panic!("{}", msg);
             }
         }
     }
@@ -87,14 +84,12 @@ mod tests {
         let txt = "fun add(a, b)
                      a + b
                    end
+
                    add(1, 2)";
         let exp = 3;
 
         let val = match BangParser::parse(txt) {
-            Ok(node) => {
-                dbg!(&node);
-                eval_prgm(node)
-            }
+            Ok(node) => eval_prgm(node),
             Err(e) => panic!("Error: {:?}", e),
         };
 
@@ -106,7 +101,101 @@ mod tests {
                 println!("unimplemented val");
             }
             Err(RunErr(msg)) => {
-                println!("{}", msg);
+                panic!("{}", msg);
+            }
+        }
+    }
+
+    #[test]
+    fn test_parser_fun_mult() {
+        let txt = "
+                let x = 10
+
+                let y = 20
+
+                fun add(a, b)
+                  a + b
+                end
+
+                let j = 40
+
+                add(j, y)
+
+                add(j, x)
+                ";
+        let exp = 50;
+
+        let val = match BangParser::parse(txt) {
+            Ok(node) => eval_prgm(node),
+            Err(e) => panic!("Error: {:?}", e),
+        };
+
+        match val {
+            Ok(Value::Num(val)) => {
+                assert_eq!(val, exp);
+            }
+            Ok(_) => {
+                println!("unimplemented val");
+            }
+            Err(RunErr(msg)) => {
+                panic!("{}", msg);
+            }
+        }
+    }
+
+    #[test]
+    fn test_parser_match() {
+        let txt = "
+            match 10
+                2 => 3
+                3 => 4
+                1 => 20
+                _ => 0
+            end
+            ";
+        let exp = 0;
+
+        let val = match BangParser::parse(txt) {
+            Ok(node) => eval_prgm(node),
+            Err(e) => panic!("Error: {:?}", e),
+        };
+
+        match val {
+            Ok(Value::Num(val)) => {
+                assert_eq!(val, exp);
+            }
+            Ok(_) => {
+                println!("unimplemented val");
+            }
+            Err(RunErr(msg)) => {
+                panic!("{}", msg);
+            }
+        }
+    }
+
+    #[test]
+    fn test_parser_fun_fun() {
+        let txt = "
+            fun wow()
+            1
+            end
+            ";
+        let exp = 0;
+
+        let val = match BangParser::parse(txt) {
+            Ok(node) => eval_prgm(node),
+            Err(e) => panic!("Error: {:?}", e),
+        };
+
+        match val {
+            Ok(Value::Num(val)) => {
+                assert_eq!(val, exp);
+            }
+            Ok(_) => {
+                println!("unimplemented val");
+            }
+            Err(RunErr(msg)) => {
+                panic!("{}", msg);
             }
         }
     }

@@ -17,12 +17,15 @@ pub enum AstNode {
     Mul,
     Div,
     Pow,
-    Let(String, Box<AstNode>, Box<AstNode>),
-    Fun(String, LinkedList<AstNode>, Box<AstNode>, Box<AstNode>),
+    Default,
+    Let(String, Box<AstNode>),
+    Fun(String, LinkedList<AstNode>, LinkedList<AstNode>),
     Funcall(String, LinkedList<AstNode>),
     BinAdd(Box<AstNode>, Box<AstNode>, Box<AstNode>),
     BinMul(Box<AstNode>, Box<AstNode>, Box<AstNode>),
     BinPow(Box<AstNode>, Box<AstNode>, Box<AstNode>),
+    Branch(Box<AstNode>, Box<AstNode>),
+    Match(Box<AstNode>, LinkedList<AstNode>),
     EOI,
 }
 
@@ -42,27 +45,35 @@ fn astify(pair: pest::iterators::Pair<Rule>) -> Option<AstNode> {
             let mut inner = pair.into_inner();
             let idt = inner.next().unwrap().as_str().to_string();
             let val = Box::new(astify(inner.next().unwrap())?);
-            let body = Box::new(astify(inner.next().unwrap())?);
-            AstNode::Let(idt, val, body)
+            AstNode::Let(idt, val)
         }
         Rule::fun => {
             let mut inner = pair.into_inner();
             let idt = inner.next().unwrap().as_str().to_string();
 
-            let args =
-                inner
-                    .next()
-                    .unwrap()
-                    .into_inner()
-                    .fold(LinkedList::new(), |mut acc, pair| {
-                        acc.push_back(astify(pair).unwrap());
-                        acc
-                    });
+            let mut args = LinkedList::new();
 
-            let body = Box::new(astify(inner.next().unwrap())?);
-            let scope = Box::new(astify(inner.next().unwrap())?);
-            AstNode::Fun(idt, args, body, scope)
+            match inner.peek().unwrap().as_rule() {
+                Rule::args => {
+                    args = inner.next().unwrap().into_inner().fold(
+                        LinkedList::new(),
+                        |mut acc, pair| {
+                            acc.push_back(astify(pair).unwrap());
+                            acc
+                        },
+                    );
+                }
+                _ => {}
+            };
+
+            let bodies = inner.fold(LinkedList::new(), |mut acc, pair| {
+                acc.push_back(astify(pair).unwrap());
+                acc
+            });
+
+            AstNode::Fun(idt, args, bodies)
         }
+
         Rule::funcall => {
             let mut inner = pair.into_inner();
             let idt = inner.next().unwrap().as_str().to_string();
@@ -144,9 +155,34 @@ fn astify(pair: pest::iterators::Pair<Rule>) -> Option<AstNode> {
         Rule::mul => AstNode::Mul,
         Rule::div => AstNode::Div,
         Rule::pow => AstNode::Pow,
+        Rule::default => AstNode::Default,
+        Rule::defbranch => {
+            let mut inner = pair.into_inner();
+            let lhs = astify(inner.next().unwrap());
+            let rhs = astify(inner.next().unwrap());
+
+            AstNode::Branch(Box::new(lhs?), Box::new(rhs?))
+        }
+        Rule::branch => {
+            let mut inner = pair.into_inner();
+            let lhs = astify(inner.next().unwrap());
+            let rhs = astify(inner.next().unwrap());
+
+            AstNode::Branch(Box::new(lhs?), Box::new(rhs?))
+        }
+        Rule::cond => {
+            let mut inner = pair.into_inner();
+            let lhs = astify(inner.next().unwrap());
+
+            let rhss = inner.fold(LinkedList::new(), |mut acc, pair| {
+                acc.push_back(astify(pair).unwrap());
+                acc
+            });
+
+            AstNode::Match(Box::new(lhs?), rhss)
+        }
         Rule::EOI => AstNode::EOI,
         _ => {
-            dbg!(pair.as_rule());
             unreachable!()
         }
     };

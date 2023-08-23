@@ -1,0 +1,19 @@
+fun febo(n)
+  match n
+    0 => 1
+    1 => 1
+    _ => febo(n - 1) + febo(n - 2)
+  end
+end
+
+fun loop(n)
+  febo(n)
+
+  match n
+    0 => 0
+    _ => 1 + loop(n - 1)
+  end
+end
+
+loop(7)
+-- febo(7)
