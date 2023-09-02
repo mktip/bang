@@ -11,6 +11,7 @@ pub enum Value {
     Num(i32),
     Fun(LinkedList<AstNode>, LinkedList<AstNode>, Rc<RefCell<Env>>),
     Bool(bool),
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -187,6 +188,22 @@ fn eval_fun(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
 fn eval_funcall(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     match pair {
         AstNode::Funcall(idt, params) => {
+            if idt == "put" {
+                for param in params.iter() {
+                        let param = match param {
+                            AstNode::Expr(expr) => *(*expr).clone(),
+                            _ => {
+                                unreachable!()
+                            }
+                        };
+
+                        let val = eval_expr(param, &mut env.new_child())?;
+                        println!("{:?}", val);
+                }
+
+                return Ok(Value::None);
+            }
+
             let fun = match env.get(&idt) {
                 Some(val) => val,
                 None => return Err(RunErr(format!("Error function {} is not defined", &idt))),

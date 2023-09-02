@@ -22,6 +22,9 @@ fn main() {
         Ok(Value::Bool(_)) => {
             println!("{:?}", val);
         }
+        Ok(Value::None) => {
+            println!("{:?}", val);
+        }
         Err(RunErr(msg)) => {
             println!("{}", msg);
         }

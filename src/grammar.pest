@@ -24,6 +24,7 @@ num     = @{ ('0' .. '9')+ }
 bool = { true | false }
 true = @{"true"}
 false = @{"false"}
+none = @{"none"}
 idt = @{ !("end") ~ (('A' .. 'Z') | ('a' .. 'z'))+ ~ ("-" ~ (('A' .. 'Z') | ('a' .. 'z'))+)* }
 
 
