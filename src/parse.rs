@@ -1,4 +1,5 @@
 use pest::Parser;
+use std::collections::BTreeMap;
 use std::collections::LinkedList;
 #[derive(Parser)]
 #[grammar = "./src/grammar.pest"]
@@ -6,12 +7,14 @@ struct LangParser;
 
 pub struct BangParser;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub enum AstNode {
     Program(LinkedList<AstNode>),
     Expr(Box<AstNode>),
     Idt(String),
     Num(String),
+    Str(String),
+    Map(BTreeMap<AstNode, AstNode>),
     Add,
     Sub,
     Mul,
@@ -41,6 +44,42 @@ fn astify(pair: pest::iterators::Pair<Rule>) -> Option<AstNode> {
         Rule::expr => AstNode::Expr(Box::new(astify(pair.into_inner().next().unwrap())?)),
         Rule::num => AstNode::Num(pair.as_str().to_string()),
         Rule::idt => AstNode::Idt(pair.as_str().to_string()),
+        Rule::map => {
+            let mut map = BTreeMap::new();
+
+            let mut inner = pair.into_inner();
+            loop {
+                match inner.next() {
+                    Some(idt) => map.insert(astify(idt)?, astify(inner.next().unwrap())?),
+                    None => break,
+                };
+            }
+
+            // dbg!(&pair.as_str().to_string());
+
+            AstNode::Map(map)
+        }
+        Rule::str => {
+            AstNode::Str(pair.as_str().to_string())} ,
+        Rule::list => {
+            let mut map = BTreeMap::new();
+
+            let mut inner = pair.into_inner();
+            let mut i = 0;
+            loop {
+                match inner.next() {
+                    Some(val) => {
+                        map.insert(AstNode::Num(i.to_string()), astify(val)?);
+                        i += 1
+                    }
+                    None => break,
+                };
+            }
+
+            // dbg!(&pair.as_str().to_string());
+
+            AstNode::Map(map)
+        }
         Rule::ltd => {
             let mut inner = pair.into_inner();
             let idt = inner.next().unwrap().as_str().to_string();

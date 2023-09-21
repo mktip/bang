@@ -3,7 +3,7 @@ COMMENT = _{ "--" ~ (!("--" | "\n" | EOI) ~ ANY)* ~ ("--" | "\n" | EOI) }
 
 program = { SOI ~ (expr)* ~ EOI}
 
-expr = {  fun | cond | ltd | binadd | funcall | idt | num }
+expr = {  fun | cond | ltd | binadd | funcall | idt | num | map | list }
 
 ltd  = { "let" ~ idt ~ "=" ~ expr}
 
@@ -14,24 +14,24 @@ funcall = {idt  ~ "(" ~ (params)? ~ ")"}
 args   = { (idt ~ ("," ~ idt)*)   }
 params = { (expr ~ ("," ~ expr)*) }
 
-
 cond = { "match" ~ expr ~ (branch)+ ~ (defbranch)? ~ "end"}
 branch = { expr ~ "=>" ~ expr }
 defbranch = { default ~ "=>" ~ expr }
 default = @{ "_" }
 
-num     = @{ ('0' .. '9')+ }
-bool = { true | false }
-true = @{"true"}
+list  = { "{" ~ ((num | bool | idt | str) ~ ",")* ~  "}" }
+map   = { "{" ~ (idt ~ ":" ~ (num | bool | idt | str) ~ ",")* ~  "}" }
+bool  = { true | false }
+num   = @{ ('0' .. '9')+ }
+true  = @{"true"}
 false = @{"false"}
-none = @{"none"}
-idt = @{ !("end") ~ (('A' .. 'Z') | ('a' .. 'z'))+ ~ ("-" ~ (('A' .. 'Z') | ('a' .. 'z'))+)* }
-
+none  = @{"none"}
+idt   = @{ !("fun") ~ !("end") ~ (('A' .. 'Z') | ('a' .. 'z'))+ ~ ("-" ~ (('A' .. 'Z') | ('a' .. 'z'))+)* }
+str   = @{ "\"" ~ ( !("\"") ~ ANY )* ~ "\""}
 
 binadd = { (fun | funcall | binmul)    ~ ((add | sub) ~ (fun | funcall | binmul))*    }
 binmul = { (fun | funcall | binpow)    ~ ((mul | div) ~ (fun | funcall | binpow))*    }
 binpow = { (fun | funcall | cond | idt | num) ~ (pow         ~ (fun | funcall | cond | idt | num))* }
-
 
 add = @{ "+" }
 sub = @{ "-" }

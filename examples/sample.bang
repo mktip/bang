@@ -9,3 +9,5 @@ end
 let j = 20
 
 add(j, y)
+
+add(x, y)

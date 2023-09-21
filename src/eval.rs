@@ -1,39 +1,41 @@
 use crate::parse::AstNode;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::collections::LinkedList;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
-
+#[derive(Debug, Clone, Ord, Eq, PartialEq, PartialOrd)]
 pub enum Value {
+    Map(BTreeMap<Value, Value>),
     Num(i32),
     Fun(LinkedList<AstNode>, LinkedList<AstNode>, Rc<RefCell<Env>>),
+    String(String),
     Bool(bool),
     None,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Ord, PartialOrd, PartialEq, Eq)]
 pub struct RunErr(pub String);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Env {
-    env: HashMap<String, Rc<RefCell<Value>>>,
+    env: BTreeMap<String, Rc<RefCell<Value>>>,
     parent: Option<Box<Env>>,
 }
 
 impl Env {
     fn new() -> Env {
         Env {
-            env: HashMap::new(),
+            env: BTreeMap::new(),
             parent: None,
         }
     }
 
     fn new_child(&self) -> Env {
         Env {
-            env: HashMap::new(),
+            env: BTreeMap::new(),
             parent: Some(Box::new(self.clone())),
         }
     }
@@ -56,6 +58,9 @@ impl Env {
 pub fn eval_prgm(pair: AstNode) -> Result<Value, RunErr> {
     let mut env = Env::new();
     let mut val = Value::Num(-1);
+
+    // insert builtin functions to the environment?
+    // add_builtins(&mut env);
 
     let lst = match pair {
         AstNode::Program(lst) => lst,
@@ -89,10 +94,35 @@ fn eval_expr(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
         AstNode::Fun(_, _, _) => eval_fun(pair, env),
         AstNode::Funcall(_, _) => eval_funcall(pair, env),
         AstNode::Match(_, _) => eval_match(pair, env),
+        // Contiune AstNode for the map
+        AstNode::Map(_) => eval_map(pair, env),
+        AstNode::Str(_) => eval_str(pair),
         _ => {
             unreachable!()
         }
     }
+}
+
+fn eval_map(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
+    let map = match pair {
+        AstNode::Map(map) => map,
+        _ => unreachable!(),
+    };
+
+    let mut newmap = BTreeMap::new();
+
+
+    for (key, value) in map.iter() {
+        // TODO: Make sure the idt is only converted to a string if it has not been used before
+        // (i.e. does not exist in the environment)
+        match key {
+            AstNode::Idt(idt) => newmap.insert(Value::String(idt.clone()), eval_expr(value.clone(), env)?),
+            _ => newmap.insert(eval_expr(key.clone(), env)?, eval_expr(value.clone(), env)?),
+        };
+    }
+
+
+    Ok(Value::Map(newmap))
 }
 
 fn eval_match(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
@@ -185,23 +215,63 @@ fn eval_fun(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     }
 }
 
+fn check_builtins(
+    idt: String,
+) -> Option<fn(LinkedList<AstNode>, &mut Env) -> Result<Value, RunErr>> {
+    let mut builtins: HashMap<String, fn(LinkedList<AstNode>, &mut Env) -> Result<Value, RunErr>> =
+        HashMap::new();
+
+    builtins.insert(
+        "put".to_string(),
+        |params: LinkedList<AstNode>, env: &mut Env| {
+            for param in params.iter() {
+                let param = match param {
+                    AstNode::Expr(expr) => *(*expr).clone(),
+                    _ => {
+                        unreachable!()
+                    }
+                };
+
+                let val = eval_expr(param, &mut env.new_child())?;
+                println!("{:?}", val);
+            }
+
+            return Ok(Value::None);
+        },
+    );
+
+    builtins.insert(
+        "put".to_string(),
+        |params: LinkedList<AstNode>, env: &mut Env| {
+            for param in params.iter() {
+                let param = match param {
+                    AstNode::Expr(expr) => *(*expr).clone(),
+                    _ => {
+                        unreachable!()
+                    }
+                };
+
+                let val = eval_expr(param, &mut env.new_child())?;
+                println!("{:?}", val);
+            }
+
+            return Ok(Value::None);
+        },
+    );
+
+    match builtins.get(&idt) {
+        Some(&fun) => Some(fun),
+        None => None,
+    }
+}
+
 fn eval_funcall(pair: AstNode, env: &mut Env) -> Result<Value, RunErr> {
     match pair {
         AstNode::Funcall(idt, params) => {
-            if idt == "put" {
-                for param in params.iter() {
-                        let param = match param {
-                            AstNode::Expr(expr) => *(*expr).clone(),
-                            _ => {
-                                unreachable!()
-                            }
-                        };
-
-                        let val = eval_expr(param, &mut env.new_child())?;
-                        println!("{:?}", val);
-                }
-
-                return Ok(Value::None);
+            let builtin = check_builtins(idt.clone());
+            match builtin {
+                Some(fun) => return fun(params, env),
+                None => {}
             }
 
             let fun = match env.get(&idt) {
@@ -340,4 +410,16 @@ fn eval_num(pair: AstNode) -> Result<Value, RunErr> {
     };
 
     Ok(Value::Num(num.parse::<i32>().unwrap()))
+}
+
+fn eval_str(pair: AstNode) -> Result<Value, RunErr> {
+    let str = match pair {
+        AstNode::Str(str) => str,
+        _ => {
+            unreachable!()
+        }
+    };
+
+    // clean the extra "\"" from the string
+    Ok(Value::String(str))
 }

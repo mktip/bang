@@ -13,6 +13,12 @@ fn main() {
     };
 
     match val {
+        Ok(Value::Map(map)) => {
+            println!("{:?}", map);
+        }
+        Ok(Value::String(string)) => {
+            println!("{:?}", string);
+        }
         Ok(Value::Num(val)) => {
             println!("{}", val);
         }
